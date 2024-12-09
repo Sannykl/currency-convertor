@@ -39,6 +39,7 @@ class MainViewController: UIViewController {
         label.textColor = UIColor(red: 235/255.0, green: 64/255.0, blue: 52/255.0, alpha: 1.0)
         label.font = .systemFont(ofSize: 12, weight: .regular)
         label.textAlignment = .center
+        label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -62,14 +63,12 @@ class MainViewController: UIViewController {
     
     private let animationView: LottieAnimationView = {
         let animationView = LottieAnimationView(name: "loading-animation")
-        animationView.frame.size = CGSize(width: 40, height: 40)
         animationView.contentMode = .scaleToFill
         animationView.loopMode = .loop
         animationView.animationSpeed = 0.5
         animationView.backgroundBehavior = .pauseAndRestore
         animationView.play()
         animationView.translatesAutoresizingMaskIntoConstraints = false
-        animationView.backgroundColor = .red
         return animationView
     }()
     
@@ -91,7 +90,7 @@ class MainViewController: UIViewController {
             self?.reverseButton.isHidden = isHidden
         }.store(in: &subscriptions)
         viewModel.$animationViewHidden.sink { [weak self] isHidden in
-//            self?.animationView.isHidden = isHidden
+            self?.animationView.isHidden = isHidden
         }.store(in: &subscriptions)
     }
     
@@ -103,6 +102,7 @@ class MainViewController: UIViewController {
         addToCurrencyView()
         addCircleView()
         addReverseButton()
+        addAnimationView()
         addErrorLabel()
     }
     
@@ -174,10 +174,10 @@ class MainViewController: UIViewController {
         circleView.addSubview(animationView)
         
         let constraints = [
-            circleView.topAnchor.constraint(equalTo: circleView.topAnchor, constant: 0),
-            circleView.leftAnchor.constraint(equalTo: circleView.leftAnchor, constant: 0),
-            circleView.rightAnchor.constraint(equalTo: circleView.rightAnchor, constant: 0),
-            circleView.bottomAnchor.constraint(equalTo: circleView.bottomAnchor, constant: 0)
+            animationView.topAnchor.constraint(equalTo: circleView.topAnchor, constant: 4),
+            animationView.leftAnchor.constraint(equalTo: circleView.leftAnchor, constant: 4),
+            animationView.rightAnchor.constraint(equalTo: circleView.rightAnchor, constant: -4),
+            animationView.bottomAnchor.constraint(equalTo: circleView.bottomAnchor, constant: -4)
         ]
         NSLayoutConstraint.activate(constraints)
     }
