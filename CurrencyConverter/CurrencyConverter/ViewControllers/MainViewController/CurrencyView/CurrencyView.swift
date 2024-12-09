@@ -6,13 +6,17 @@
 //
 
 import UIKit
+import Combine
+
+protocol CurrencyViewDelegate: AnyObject {
+    func didTapCurrencyButton(for type: CurrencyType)
+    func didChangeAmount(_ text: String)
+}
 
 final class CurrencyView: UIView {
     
     private let titleLabel: UILabel = {
         let label = UILabel()
-        label.text = "YOU PAY"
-        label.textColor = UIColor(red: 3/255.0, green: 5/255.0, blue: 61/255.0, alpha: 1.0)
         label.font = .systemFont(ofSize: 12, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -20,7 +24,6 @@ final class CurrencyView: UIView {
     
     private let currencyImageView: UIImageView = {
         let imageView = UIImageView(frame: .zero)
-        imageView.image = Currency.usd.flag
         imageView.contentMode = .scaleAspectFill
         imageView.layer.cornerRadius = 20.0
         imageView.layer.masksToBounds = true
@@ -30,8 +33,6 @@ final class CurrencyView: UIView {
     
     private let currencyLabel: UILabel = {
         let label = UILabel()
-        label.text = "USD"
-        label.textColor = UIColor(red: 3/255.0, green: 5/255.0, blue: 61/255.0, alpha: 1.0)
         label.font = .systemFont(ofSize: 24, weight: .bold)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -39,15 +40,12 @@ final class CurrencyView: UIView {
     
     private let arrowImageView: UIImageView = {
         let imageView = UIImageView(frame: .zero)
-        imageView.image = UIImage(resource: .arrowDropDownFill)
         imageView.translatesAutoresizingMaskIntoConstraints = false
         return imageView
     }()
     
     private let currencyNameLabel: UILabel = {
         let label = UILabel()
-        label.text = "US Dollar"
-        label.textColor = UIColor(red: 3/255.0, green: 5/255.0, blue: 61/255.0, alpha: 1.0)
         label.font = .systemFont(ofSize: 10, weight: .regular)
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -56,7 +54,6 @@ final class CurrencyView: UIView {
     private let textField: UITextField = {
         let textField = UITextField()
         textField.font = .systemFont(ofSize: 42, weight: .bold)
-        textField.textColor = UIColor(red: 3/255.0, green: 5/255.0, blue: 61/255.0, alpha: 1.0)
         textField.becomeFirstResponder()
         textField.translatesAutoresizingMaskIntoConstraints = false
         textField.textAlignment = .right
@@ -66,7 +63,12 @@ final class CurrencyView: UIView {
         textField.adjustsFontSizeToFitWidth = true
         return textField
     }()
+ 
+    private var viewModel: CurrencyViewModel?
+    weak var delegate: CurrencyViewDelegate?
     
+    private var subscriptions = Set<AnyCancellable>()
+
     init() {
         super.init(frame: .zero)
         prepareUI()
@@ -77,11 +79,8 @@ final class CurrencyView: UIView {
     }
     
     private func prepareUI() {
-        backgroundColor = UIColor.yellow.withAlphaComponent(0.7)
-        
         layer.cornerRadius = 20.0
         layer.borderWidth = 1.0
-        layer.borderColor = UIColor.yellow.withAlphaComponent(0.8).cgColor
         
         prepareTitleLabel()
         prepareCurrencyImageView()
@@ -172,15 +171,51 @@ final class CurrencyView: UIView {
         ]
         NSLayoutConstraint.activate(textFieldConstraints)
     }
-    
-    @objc private func buttonAction() {
 
+    func fill(with viewModel: CurrencyViewModel) {
+        self.viewModel = viewModel
+        
+        backgroundColor = viewModel.backgroundColor
+        layer.borderColor = viewModel.borderColor.cgColor
+        titleLabel.text = viewModel.titleString
+        titleLabel.textColor = viewModel.textColor.withAlphaComponent(0.6)
+        currencyLabel.textColor = viewModel.textColor
+        arrowImageView.image = viewModel.arrowIcon
+        currencyNameLabel.textColor = viewModel.textColor.withAlphaComponent(0.6)
+        textField.textColor = viewModel.textColor
+        textField.tintColor = viewModel.textColor
+        textField.isEnabled = viewModel.isTextFieldEnabled
+        if viewModel.isTextFieldEnabled {
+            textField.becomeFirstResponder()
+        }
+        textField.placeholder = viewModel.textFieldPlaceholder
+        
+        viewModel.$currencyImage.sink { [weak self] image in
+            self?.currencyImageView.image = image
+        }.store(in: &subscriptions)
+        viewModel.$currencyName.sink { [weak self] name in
+            self?.currencyNameLabel.text = name
+        }.store(in: &subscriptions)
+        viewModel.$currencyString.sink { [weak self] currency in
+            self?.currencyLabel.text = currency
+        }.store(in: &subscriptions)
+        viewModel.$currencyAmount.sink { [weak self] amount in
+            self?.textField.text = amount
+        }.store(in: &subscriptions)
+    }
+
+    @objc private func buttonAction() {
+        guard let viewModel else { return }
+        delegate?.didTapCurrencyButton(for: viewModel.currencyType)
     }
 }
 
 extension CurrencyView: UITextFieldDelegate {
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        guard let text = textField.text, let textRange = Range(range, in: text) else { return true }
+        let updatedText = text.replacingCharacters(in: textRange, with: string)
+        delegate?.didChangeAmount(updatedText)
         return true
     }
 }

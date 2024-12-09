@@ -7,6 +7,7 @@
 
 import UIKit
 import Combine
+import Lottie
 
 class MainViewController: UIViewController {
     
@@ -42,6 +43,36 @@ class MainViewController: UIViewController {
         return label
     }()
     
+    private let circleView: UIView = {
+        let view = UIView(frame: .zero)
+        view.backgroundColor = UIColor(red: 227/255.0, green: 232/255.0, blue: 229/255.0, alpha: 1.0)
+        view.layer.cornerRadius = 20
+        view.layer.borderWidth = 1
+        view.layer.borderColor = UIColor(red: 209/255.0, green: 209/255.0, blue: 209/255.0, alpha: 1.0).cgColor
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    private let reverseButton: UIButton = {
+        let button = UIButton(type: .custom)
+        button.setImage(UIImage(resource: .arrowUpDownFill), for: .normal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        return button
+    }()
+    
+    private let animationView: LottieAnimationView = {
+        let animationView = LottieAnimationView(name: "loading-animation")
+        animationView.frame.size = CGSize(width: 40, height: 40)
+        animationView.contentMode = .scaleToFill
+        animationView.loopMode = .loop
+        animationView.animationSpeed = 0.5
+        animationView.backgroundBehavior = .pauseAndRestore
+        animationView.play()
+        animationView.translatesAutoresizingMaskIntoConstraints = false
+        animationView.backgroundColor = .red
+        return animationView
+    }()
+    
     private var subscriptions = Set<AnyCancellable>()
 
     override func viewDidLoad() {
@@ -56,6 +87,12 @@ class MainViewController: UIViewController {
         viewModel.$errorString.sink { [weak self] errorString in
             self?.errorLabel.text = errorString
         }.store(in: &subscriptions)
+        viewModel.$reverseButtonHidden.sink { [weak self] isHidden in
+            self?.reverseButton.isHidden = isHidden
+        }.store(in: &subscriptions)
+        viewModel.$animationViewHidden.sink { [weak self] isHidden in
+//            self?.animationView.isHidden = isHidden
+        }.store(in: &subscriptions)
     }
     
     private func prepareUI() {
@@ -64,6 +101,7 @@ class MainViewController: UIViewController {
         addTitle()
         addFromCurrencyView()
         addToCurrencyView()
+        addCircleView()
         addReverseButton()
         addErrorLabel()
     }
@@ -80,6 +118,8 @@ class MainViewController: UIViewController {
      }
     
     private func addFromCurrencyView() {
+        fromView.fill(with: viewModel.fromCurrencyViewModel)
+        fromView.delegate = self
         view.addSubview(fromView)
         
         let constraints = [
@@ -92,6 +132,8 @@ class MainViewController: UIViewController {
     }
     
     private func addToCurrencyView() {
+        toView.fill(with: viewModel.toCurrencyViewModel)
+        toView.delegate = self
         view.addSubview(toView)
         
         let constraints = [
@@ -103,23 +145,39 @@ class MainViewController: UIViewController {
         NSLayoutConstraint.activate(constraints)
     }
     
-    private func addReverseButton() {
-        let button = UIButton(type: .custom)
-        button.setImage(UIImage(resource: .arrowUpDownFill), for: .normal)
-        button.backgroundColor = UIColor(red: 227/255.0, green: 232/255.0, blue: 229/255.0, alpha: 1.0)
-        button.layer.cornerRadius = 20
-        button.layer.borderWidth = 1
-        button.layer.borderColor = UIColor(red: 209/255.0, green: 209/255.0, blue: 209/255.0, alpha: 1.0).cgColor
-        
-        button.addTarget(self, action: #selector(revertButtonAction), for: .touchUpInside)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(button)
+    private func addCircleView() {
+        view.addSubview(circleView)
         
         let constraints = [
-            button.topAnchor.constraint(equalTo: fromView.bottomAnchor, constant: -15),
-            button.centerXAnchor.constraint(equalTo: fromView.centerXAnchor, constant: 0),
-            button.heightAnchor.constraint(equalToConstant: 40),
-            button.widthAnchor.constraint(equalToConstant: 40)
+            circleView.topAnchor.constraint(equalTo: fromView.bottomAnchor, constant: -15),
+            circleView.centerXAnchor.constraint(equalTo: fromView.centerXAnchor, constant: 0),
+            circleView.heightAnchor.constraint(equalToConstant: 40),
+            circleView.widthAnchor.constraint(equalToConstant: 40)
+        ]
+        NSLayoutConstraint.activate(constraints)
+    }
+    
+    private func addReverseButton() {
+        reverseButton.addTarget(self, action: #selector(reverseButtonAction), for: .touchUpInside)
+        circleView.addSubview(reverseButton)
+        
+        let constraints = [
+            reverseButton.topAnchor.constraint(equalTo: circleView.topAnchor, constant: 0),
+            reverseButton.leftAnchor.constraint(equalTo: circleView.leftAnchor, constant: 0),
+            reverseButton.rightAnchor.constraint(equalTo: circleView.rightAnchor, constant: 0),
+            reverseButton.bottomAnchor.constraint(equalTo: circleView.bottomAnchor, constant: 0)
+        ]
+        NSLayoutConstraint.activate(constraints)
+    }
+    
+    private func addAnimationView() {
+        circleView.addSubview(animationView)
+        
+        let constraints = [
+            circleView.topAnchor.constraint(equalTo: circleView.topAnchor, constant: 0),
+            circleView.leftAnchor.constraint(equalTo: circleView.leftAnchor, constant: 0),
+            circleView.rightAnchor.constraint(equalTo: circleView.rightAnchor, constant: 0),
+            circleView.bottomAnchor.constraint(equalTo: circleView.bottomAnchor, constant: 0)
         ]
         NSLayoutConstraint.activate(constraints)
     }
@@ -139,7 +197,28 @@ class MainViewController: UIViewController {
 //MARK: button actions methods
 private extension MainViewController {
     
-    @objc func revertButtonAction() {
+    @objc func reverseButtonAction() {
         viewModel.replaceCurencies()
+    }
+}
+
+extension MainViewController: CurrencyViewDelegate {
+    
+    func didTapCurrencyButton(for type: CurrencyType) {
+        let currencyListViewModel = viewModel.currencyListViewModel(type)
+        let currencyListViewController = CurrencyListViewController(currencyListViewModel)
+        currencyListViewController.delegate = self
+        present(currencyListViewController, animated: true)
+    }
+    
+    func didChangeAmount(_ text: String) {
+        viewModel.didChangeCurrentAmount(text)
+    }
+}
+
+extension MainViewController: CurrencyListViewControllerDelegate {
+    
+    func didSelectCurrency(at index: Int, for listType: CurrencyType) {
+        viewModel.didSelectCurrency(at: index, listType: listType)
     }
 }
